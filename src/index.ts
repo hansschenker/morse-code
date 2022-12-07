@@ -24,88 +24,93 @@ import {
   ReplaySubject,
   timer,
   switchMap,
-  reduce
+  reduce,
 } from "rxjs";
 
 type Period = {
-  index: number,
-  count: number
-}
+  index: number;
+  count: number;
+};
 
-const TimestampState = new BehaviorSubject<number[]>([])
-const TimestampChanges = TimestampState.asObservable().pipe(
-  scan((acc, val) => (  [...acc , ...val]))
-).subscribe((val) => console.log('diff:',val))
+const TimestampState = new BehaviorSubject<number[]>([]);
+const TimestampChanges = TimestampState.asObservable();
+TimestampChanges.pipe(scan((acc, val) => [...acc, ...val])).subscribe((val) =>
+  console.log("timestamp changes:", val)
+);
+// ************************************************************************
 
-// const LetterState = new BehaviorSubject<string[]>([])
-// const LetterChanges = LetterState.asObservable()
-// LetterChanges.pipe(
-//   scan((acc, val) => (  [...acc , ...val]))
-// )
-// .subscribe((changes: string[]) => {
-//   console.log(changes)
-// })
+const LetterState = new BehaviorSubject<string[]>([]);
+const LetterChanges = LetterState.asObservable();
+LetterChanges.pipe(scan((acc, val) => [...acc, ...val])).subscribe(
+  (changes: string[]) => {
+    console.log("letter changes:", changes);
+  }
+);
+// ************************************************************************
 
-const MorseState = new BehaviorSubject<string[]>([])
-const MorseChanges = MorseState.asObservable().pipe(
-  scan((acc, val) => (  [...acc , ...val]))
-).subscribe((val) => console.log(val))
+const MorseState = new BehaviorSubject<string[]>([]);
+const MorseChanges = MorseState.asObservable()
+  .pipe(
+    // filter((val) => val.filter((v) => v === '/').length > 0),
+    //  tap((val) => console.log('morse change:',val)),
+    scan((acc, val) => [...acc, ...val])
+    // filter((v) => v.filter((s) => s === "/").length > 0),
+    // tap((v) => MorseState.next(v))
+  )
+  .subscribe((val) => console.log("morse changes:", val));
 // ************************************************************************
 
 // spacebar press and release events
-const morseInput = document.getElementById('morseInput') as HTMLInputElement
+const morseInput = document.getElementById("morseInput") as HTMLInputElement;
+
 // keyup -> number
-const keyups = fromEvent<KeyboardEvent>(morseInput!, 'keyup').pipe(
-  filter(e => e.code === 'Space'),
-  map( _ => Date.now()),
+const keyups = fromEvent<KeyboardEvent>(document, "keyup").pipe(
+  filter((e) => e.code === "Space"),
+  map((_) => Date.now()),
+  tap((v) => TimestampState.next([v])),
   take(1)
-)
+);
 // keydown -> number
-const keydowns = fromEvent<KeyboardEvent>(morseInput!, 'keydown').pipe(
-  filter(e => e.code === 'Space'),
-  map( _ => Date.now()),
-  take(1)
-)
+const keydowns = fromEvent<KeyboardEvent>(document, "keydown").pipe(
+  filter((e) => e.code === "Space"), // -> event
+  map((_) => Date.now()), // -> number
+  tap((v) => TimestampState.next([v])),
+  take(1) // -> do it once and unsubscribe
+);
+// ******************************
+const keys = combineLatest(keyups, keydowns)
+  .pipe(
+    tap(([up, down]) => MorseState.next(toMorseCode(down, up))),
+    repeat()
+  )
+  .subscribe((val) => console.log("keys:", val));
 
-const letters = keydowns.pipe(
-  switchMap(down => keyups.pipe(map(up => MorseState.next(toDotOrDash(down, up) )  ))),
-  takeUntil(timer(5000).pipe(takeUntil(keydowns), repeat())),
-  tap( _ =>  morseInput!.value = ''),
-  repeat()
-)
- letters.subscribe((val) => console.log('letters:',val))
+// const letters = keydowns.pipe(
+//   switchMap((down) =>
+//     keyups.pipe(map((up) => MorseState.next(toMorseCode(down, up))))
+//   ),
+//   //takeUntil(timer(800).pipe(takeUntil(keydowns), repeat())),
+//   tap((_) => (morseInput!.value = "")),
+//   repeat()
+// );
+// letters.subscribe((val) => console.log("letters:", val));
+// ************************************************************************
 
-// keys -> [number, number]
-// combineLatest(  keyups , keydowns).pipe(  
-//   // map(([t1, t2]) => t2 - t1 ),
-//   // filter(t => t < 450),
-//   repeat(),
-// ).subscribe(v => {
-// // ************************************************************************
-//   console.log(v)
-//   morseInput!.value = ''
+function toMorseCode(down: number, up: number): string[] {
+  let diff = up - down;
+  // TimestampState.next(diff);
+  console.log("diff:", diff);
+  const morse =
+    diff < 250
+      ? "." //console.log('short:',diff)
+      : diff < 700
+      ? "-" //console.log('long',diff)
+      : "/";
 
-//    const diff = v[0] - v[1]
-//   TimestampState.next([diff])
-//   console.log('diff:',diff)
-//   diff < 450 
-//   ? LetterState.next(['.'])                          //console.log('short:',diff) 
-//   : diff <750 ? LetterState.next(['-'])             //console.log('long',diff)
-//   : LetterState.next(['/'])                                                //console.log('break')
-// })
-
-function toDotOrDash(down:number,up:number): string[]  {
-  const diff = up - down
-  TimestampState.next([diff])
-  //console.log('toDotOrDash:',down,up)
-  const morse = diff < 450 
-  ? '.'                          //console.log('short:',diff) 
-  : diff <700 ? '-'             //console.log('long',diff)
-  : '/'  
-
-  return [morse
-]}  
-
-function collectDotsAndDashes(){
-  console.log('collectDotsAndDashes') 
+  diff = 0;
+  return [morse];
 }
+
+// function collectDotsAndDashes() {
+//   console.log("collectDotsAndDashes");
+// }
