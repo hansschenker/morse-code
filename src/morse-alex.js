@@ -11,15 +11,15 @@ var WORD_BREAK = DOT_TIME * 7;
 let note_context;
 let note_node;
 let gain_node;
-
 let audioContextInitialized = false;
 
 async function initializeAudioContext() {
   note_context = new AudioContext();
+  gain_node =  note_context.createGain()
   await note_context.resume();
   note_node = note_context.createOscillator();
   gain_node = note_context.createGain();
-  note_node.frequency.value = FREQUENCY.toFixed(2);
+  note_node.frequency.value = parseInt(FREQUENCY.toFixed(2));
   gain_node.gain.value = 0;
   note_node.connect(gain_node);
   gain_node.connect(note_context.destination);
